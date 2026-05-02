@@ -93,7 +93,7 @@ def month_key(value: object) -> str | None:
 def format_month(value: object) -> str:
     key = month_key(value)
     if not key:
-        return "Unknown month"
+        return "Unknown period"
     parsed = pd.to_datetime(key, errors="coerce")
     if pd.isna(parsed):
         return key
@@ -225,7 +225,7 @@ def deterministic_explanation(row: pd.Series) -> str:
         parts.append("The review includes a long ingredient-list style block, which can be a copied product-detail or promotional-content signal rather than normal customer language.")
 
     if not parts:
-        parts.append("This review was prioritized because multiple fraud-like signals are elevated for this product-month.")
+        parts.append("This review was prioritized because multiple fraud-like signals are elevated for this case.")
 
     parts.append("This is not a final fraud verdict. It is a reason to review.")
     return " ".join(parts)
@@ -307,7 +307,7 @@ def render_review_card(
 
     with st.expander(header, expanded=expanded):
         st.markdown(f"### {product_display_name(review)}")
-        st.caption(f"Product-month: {format_month(review.get('review_month', review.get('product_month')))}")
+        st.caption(f"Case period: {format_month(review.get('review_month', review.get('product_month')))}")
         st.caption(f"Rating: {stars:g}★")
 
         if reviewed_label:
@@ -361,7 +361,7 @@ st.warning("**Please be patient: the dashboard may take 5–10 seconds to load t
 st.markdown("## What to do")
 st.markdown(
     """
-1. Select a product-month case from the review queue.
+1. Select a case from the review queue.
 2. Review the high-confidence review manipulation signals.
 3. Label each review as suspicious, not suspicious, or unsure.
 """
@@ -381,7 +381,7 @@ with st.expander("How it works", expanded=True):
     st.markdown(
         "- Historical Amazon reviews are replayed as if new reviews arrive daily.\n"
         "- Reviews are scored for rating deviation, review length, reviewer behavior, and bot-like text signals.\n"
-        "- Products are prioritized when high-confidence review-manipulation signals cluster in the same product-month.\n"
+        "- Cases are prioritized when high-confidence review-manipulation signals cluster around the same listing and period.\n"
         "- Behavioral drift checks whether review volume or ratings changed sharply compared with prior periods.\n"
         "- Moderator labels are saved locally for evaluation, but do not automatically retrain the model."
     )
@@ -401,7 +401,7 @@ if queue_raw.empty:
 
 queue, reviews = filter_review_backed_cases(queue_raw, reviews_raw)
 if queue.empty:
-    st.warning("No review-backed flagged cases found. Rerun the pipeline or check output keys.")
+    st.warning("No review-backed cases found. Rerun the pipeline or check output keys.")
     st.stop()
 
 mode = st.radio(
@@ -421,22 +421,22 @@ if mode == "Cases awaiting review":
         labels.append(f"{product_display_name(row)} | {format_month(row.get('review_month'))} | priority {priority:.2f}")
 
     st.subheader("Review queue")
-    st.caption("Select a product-month case to review the strongest review-manipulation signals for that listing.")
-    st.caption(f"Showing review-backed cases only. {len(queue):,} cases in queue.")
+    st.caption("Select a case to review the strongest review-manipulation signals for that listing.")
+    st.caption(f"{len(queue):,} cases available for review.")
 
     selected_label = st.selectbox("Cases awaiting review", labels)
     selected = queue.iloc[labels.index(selected_label)]
 
     st.divider()
     st.subheader(product_display_name(selected))
-    st.caption(f"Product-month: {format_month(selected.get('review_month'))}")
+    st.caption(f"Case period: {format_month(selected.get('review_month'))}")
 
     metric_cols = st.columns(4)
     with metric_cols[0]:
         metric_card(
             "Priority score",
             f"{signal_value(selected, 'decision_score'):.2f}",
-            "Overall investigation priority for this product-month.",
+            "Overall investigation priority for this case.",
         )
     with metric_cols[1]:
         metric_card(
@@ -448,13 +448,13 @@ if mode == "Cases awaiting review":
         metric_card(
             "Share of unusual reviews",
             f"{signal_value(selected, 'suspicious_review_density'):.2f}",
-            "Share of reviews in this product-month that crossed the anomaly threshold.",
+            "Share of reviews in this case that crossed the anomaly threshold.",
         )
     with metric_cols[3]:
         metric_card(
             "Change in review patterns",
             f"{signal_value(selected, 'behavioral_drift_score'):.2f}",
-            "Change from prior month in review volume, average rating, or extreme-rating share.",
+            "Change from prior period in review volume, average rating, or extreme-rating share.",
         )
 
     filtered_reviews = reviews[
@@ -543,7 +543,7 @@ This prototype is a local Trust & Safety moderation workflow built on the Amazon
 **Data and replay design**
 - The app uses historical Amazon review timestamps and replays them as if reviews are arriving over time.
 - The current category is All_Beauty, chosen because it is small enough to run locally but still contains realistic marketplace review patterns.
-- Product-months are used as the main investigation unit, so reviewers can inspect clusters of suspicious activity rather than isolated records.
+- Cases are built around clusters of activity for a listing during a specific period, so reviewers can inspect suspicious activity in context rather than isolated records.
 
 **Scoring approach**
 - The system combines product-level behavior, reviewer behavior, text features, and anomaly detection.
@@ -557,7 +557,7 @@ Reviews are prioritized when multiple manipulation-style signals appear together
 - repeated or unusual formatting
 - copied product-detail style text, such as unusually long ingredient-list blocks
 - suspicious reviewer rating patterns
-- product-month bursts or behavioral drift
+- bursts or behavioral drift
 - synthetic / templated language signals
 
 **Synthetic / templated language**
