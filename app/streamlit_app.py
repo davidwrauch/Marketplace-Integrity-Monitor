@@ -12,7 +12,6 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 QUEUE_PATH = PROJECT_ROOT / "outputs" / "moderation_queue" / "business_month_queue"
 REVIEWS_PATH = PROJECT_ROOT / "outputs" / "moderation_queue" / "top_suspicious_reviews"
-MONITORING_PATH = PROJECT_ROOT / "outputs" / "model_monitoring" / "model_drift"
 LABEL_PATH = PROJECT_ROOT / "data" / "labels" / "review_labels.csv"
 
 TECHNICAL_SIGNAL_DEFINITIONS = {
@@ -164,6 +163,23 @@ def anomaly_label(score: object) -> str:
     return "Lower priority"
 
 
+def has_ingredient_list_pattern(text: str) -> bool:
+    lower = text.lower()
+    ingredient_terms = [
+        "ingredient list",
+        "ingredients:",
+        "full ingredient",
+        "butylene glycol",
+        "glycerin",
+        "hyaluronic acid",
+        "ceramide",
+        "disodium edta",
+        "chlorphenesin",
+    ]
+    comma_count = text.count(",")
+    return any(term in lower for term in ingredient_terms) or comma_count >= 18
+
+
 def deterministic_explanation(row: pd.Series) -> str:
     parts: list[str] = []
     stars = signal_value(row, "stars")
@@ -205,6 +221,8 @@ def deterministic_explanation(row: pd.Series) -> str:
         parts.append("The review has unusually high capitalization.")
     if len(text) > 20 and " " not in text[:80]:
         parts.append("The text has little normal spacing, which can be a bot-like formatting signal.")
+    if has_ingredient_list_pattern(text):
+        parts.append("The review includes a long ingredient-list style block, which can be a copied product-detail or promotional-content signal rather than normal customer language.")
 
     if not parts:
         parts.append("This review was prioritized because multiple fraud-like signals are elevated for this product-month.")
@@ -340,6 +358,15 @@ def render_review_card(
 st.title("Marketplace Integrity Monitor")
 st.warning("**Please be patient: the dashboard may take 5–10 seconds to load the review queue.**")
 
+st.markdown("## What to do")
+st.markdown(
+    """
+1. Select a product-month case from the review queue.
+2. Review the high-confidence review manipulation signals.
+3. Label each review as suspicious, not suspicious, or unsure.
+"""
+)
+
 st.write(
     "This tool identifies potentially suspicious review activity by combining anomaly detection, "
     "behavioral changes, and review-level signals. It helps moderators prioritize investigation. "
@@ -457,7 +484,7 @@ if mode == "Cases awaiting review":
 else:
     st.subheader("Synthetic / templated language reviews")
     st.caption(
-        "Browse reviews ranked by generic, templated, overly promotional, or low-specificity language. "
+        "Use this to explore reviews that look templated or generic across products. "
         "This is not an AI detector."
     )
 
@@ -508,6 +535,9 @@ st.divider()
 with st.expander("Methodology", expanded=False):
     st.markdown(
         """
+**Summary**  
+This system prioritizes likely review manipulation by combining multiple weak signals and surfacing only high-confidence cases for human review.
+
 This prototype is a local Trust & Safety moderation workflow built on the Amazon Reviews 2023 All_Beauty data.
 
 **Data and replay design**
@@ -525,6 +555,7 @@ Reviews are prioritized when multiple manipulation-style signals appear together
 - very short 5-star praise
 - generic or templated wording
 - repeated or unusual formatting
+- copied product-detail style text, such as unusually long ingredient-list blocks
 - suspicious reviewer rating patterns
 - product-month bursts or behavioral drift
 - synthetic / templated language signals
