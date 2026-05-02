@@ -11,7 +11,17 @@ __pycache__/
 data/raw/*.json
 data/processed/
 data/labels/*.csv
-outputs/
+
+# Ignore all outputs by default
+outputs/*
+
+# But allow ONLY the demo files needed for Streamlit
+!outputs/moderation_queue/
+!outputs/moderation_queue/business_month_queue/
+!outputs/moderation_queue/business_month_queue/data.csv
+!outputs/moderation_queue/top_suspicious_reviews/
+!outputs/moderation_queue/top_suspicious_reviews/data.csv
+
 models/
 
 .DS_Store
