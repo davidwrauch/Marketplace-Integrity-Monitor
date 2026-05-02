@@ -1,0 +1,15 @@
+﻿services:
+  pipeline:
+    build: .
+    working_dir: /app
+    command: python -m src.run_pipeline --max-train-rows 25000
+    environment:
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+      SPARK_LOCAL_IP: 127.0.0.1
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./data/processed:/app/data/processed
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+
+
